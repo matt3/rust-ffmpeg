@@ -7,6 +7,7 @@ use ffmpeg::util::frame::video::Video;
 use std::env;
 use std::fs::File;
 use std::io::prelude::*;
+use std::convert::TryFrom;
 
 fn main() -> Result<(), ffmpeg::Error> {
     ffmpeg::init().unwrap();
@@ -61,6 +62,16 @@ fn main() -> Result<(), ffmpeg::Error> {
 fn save_file(frame: &Video, index: usize) -> std::result::Result<(), std::io::Error> {
     let mut file = File::create(format!("frame{}.ppm", index))?;
     file.write_all(format!("P6\n{} {}\n255\n", frame.width(), frame.height()).as_bytes())?;
-    file.write_all(frame.data(0))?;
+    let stride = frame.stride(0);
+    let width = usize::try_from(frame.width()).unwrap() * 3;
+    let data = frame.data(0);
+    if stride == width {
+        file.write_all(data)?;
+    } else {
+        for row in 0..usize::try_from(frame.height()).unwrap() {
+            file.write_all(&data[row * stride..row * stride + width])?;
+        }
+    }
     Ok(())
 }
+
